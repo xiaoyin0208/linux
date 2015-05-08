@@ -45,6 +45,15 @@ config BT_BREDR
 	depends on BT
 	default y
 
+config BT_LEDS
+	bool "Enable LED triggers"
+	depends on BT
+	depends on LEDS_CLASS
+	select LEDS_TRIGGERS
+	---help---
+	  This option enables LED triggers for bluetooth
+	  packet receive/transmit.
+
 source "net/bluetooth/rfcomm/Kconfig"
 
 source "net/bluetooth/bnep/Kconfig"
