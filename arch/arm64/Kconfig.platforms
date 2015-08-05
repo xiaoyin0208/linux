@@ -51,6 +51,7 @@ config ARCH_LG1K
 config ARCH_HISI
 	bool "Hisilicon SoC Family"
 	select HISILICON_IRQ_MBIGEN
+	select ARM_TIMER_SP804
 	help
 	  This enables support for Hisilicon ARMv8 SoC family
 
