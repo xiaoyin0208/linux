@@ -15,6 +15,9 @@
 #define pclk_offset 0x230
 #define PMUSSI_REG_EX(pmu_base, reg_addr) (((reg_addr) << 2) + (char *)pmu_base)
 
+#define SOC_HI6220_ACPU_SCTRL_BASE_ADDR 0xF6504000
+#define coresight_offset 0x00C
+
 static int __init hi6220_sysconf(void)
 {
         static void __iomem *base = NULL;
@@ -67,6 +70,18 @@ static int __init hi6220_sysconf(void)
 	*(volatile unsigned char*)PMUSSI_REG_EX(base1, 0x1c) = ret;
 
         iounmap(base1);
+
+	/*enable coresight*/
+	base1 = ioremap(SOC_HI6220_ACPU_SCTRL_BASE_ADDR, SZ_4K);
+	if (base1 == NULL) {
+		pr_err("hi6220: asctl reg iomap failed!\n");
+		return -ENOMEM;
+	}
+	writel(BIT(11), base1 + coresight_offset);
+	pr_err("coresight: %x\n", readl(base1+0x014));
+
+	iounmap(base1);
+
         return 0;
 }
 postcore_initcall(hi6220_sysconf);
