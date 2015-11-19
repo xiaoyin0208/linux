@@ -46,6 +46,7 @@
 
 struct fib_nh;
 struct fib_info;
+struct uncached_list;
 struct rtable {
 	struct dst_entry	dst;
 
@@ -64,6 +65,7 @@ struct rtable {
 	u32			rt_pmtu;
 
 	struct list_head	rt_uncached;
+	struct uncached_list	*rt_uncached_list;
 };
 
 static inline bool rt_is_input_route(const struct rtable *rt)
@@ -140,7 +142,8 @@ static inline struct rtable *ip_route_output_ports(struct net *net, struct flowi
 	flowi4_init_output(fl4, oif, sk ? sk->sk_mark : 0, tos,
 			   RT_SCOPE_UNIVERSE, proto,
 			   sk ? inet_sk_flowi_flags(sk) : 0,
-			   daddr, saddr, dport, sport);
+			   daddr, saddr, dport, sport,
+			   sk ? sock_i_uid(sk) : GLOBAL_ROOT_UID);
 	if (sk)
 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
 	return ip_route_output_flow(net, fl4, sk);
@@ -249,7 +252,8 @@ static inline void ip_route_connect_init(struct flowi4 *fl4, __be32 dst, __be32 
 		flow_flags |= FLOWI_FLAG_ANYSRC;
 
 	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
-			   protocol, flow_flags, dst, src, dport, sport);
+			   protocol, flow_flags, dst, src, dport, sport,
+			   sock_i_uid(sk));
 }
 
 static inline struct rtable *ip_route_connect(struct flowi4 *fl4,

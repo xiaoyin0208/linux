@@ -83,6 +83,7 @@ struct dst_entry *inet6_csk_route_req(struct sock *sk,
 	fl6->flowi6_mark = ireq->ir_mark;
 	fl6->fl6_dport = ireq->ir_rmt_port;
 	fl6->fl6_sport = htons(ireq->ir_num);
+	fl6->flowi6_uid = sock_i_uid(sk);
 	security_req_classify_flow(req, flowi6_to_flowi(fl6));
 
 	dst = ip6_dst_lookup_flow(sk, fl6, final_p);
@@ -112,22 +113,20 @@ static u32 inet6_synq_hash(const struct in6_addr *raddr, const __be16 rport,
 	return c & (synq_hsize - 1);
 }
 
-struct request_sock *inet6_csk_search_req(const struct sock *sk,
-					  struct request_sock ***prevp,
+struct request_sock *inet6_csk_search_req(struct sock *sk,
 					  const __be16 rport,
 					  const struct in6_addr *raddr,
 					  const struct in6_addr *laddr,
 					  const int iif)
 {
-	const struct inet_connection_sock *icsk = inet_csk(sk);
+	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct listen_sock *lopt = icsk->icsk_accept_queue.listen_opt;
-	struct request_sock *req, **prev;
+	struct request_sock *req;
+	u32 hash = inet6_synq_hash(raddr, rport, lopt->hash_rnd,
+				   lopt->nr_table_entries);
 
-	for (prev = &lopt->syn_table[inet6_synq_hash(raddr, rport,
-						     lopt->hash_rnd,
-						     lopt->nr_table_entries)];
-	     (req = *prev) != NULL;
-	     prev = &req->dl_next) {
+	spin_lock(&icsk->icsk_accept_queue.syn_wait_lock);
+	for (req = lopt->syn_table[hash]; req != NULL; req = req->dl_next) {
 		const struct inet_request_sock *ireq = inet_rsk(req);
 
 		if (ireq->ir_rmt_port == rport &&
@@ -135,13 +134,14 @@ struct request_sock *inet6_csk_search_req(const struct sock *sk,
 		    ipv6_addr_equal(&ireq->ir_v6_rmt_addr, raddr) &&
 		    ipv6_addr_equal(&ireq->ir_v6_loc_addr, laddr) &&
 		    (!ireq->ir_iif || ireq->ir_iif == iif)) {
+			atomic_inc(&req->rsk_refcnt);
 			WARN_ON(req->sk != NULL);
-			*prevp = prev;
-			return req;
+			break;
 		}
 	}
+	spin_unlock(&icsk->icsk_accept_queue.syn_wait_lock);
 
-	return NULL;
+	return req;
 }
 EXPORT_SYMBOL_GPL(inet6_csk_search_req);
 
@@ -206,6 +206,7 @@ static struct dst_entry *inet6_csk_route_socket(struct sock *sk,
 	fl6->flowi6_mark = sk->sk_mark;
 	fl6->fl6_sport = inet->inet_sport;
 	fl6->fl6_dport = inet->inet_dport;
+	fl6->flowi6_uid = sock_i_uid(sk);
 	security_sk_classify_flow(sk, flowi6_to_flowi(fl6));
 
 	final_p = fl6_update_dst(fl6, np->opt, &final);

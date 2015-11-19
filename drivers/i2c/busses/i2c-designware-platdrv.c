@@ -40,6 +40,9 @@
 #include <linux/acpi.h>
 #include <linux/platform_data/i2c-designware.h>
 #include "i2c-designware-core.h"
+#include <linux/of_address.h>
+
+static void __iomem *sctrl_base;
 
 static struct i2c_algorithm i2c_dw_algo = {
 	.master_xfer	= i2c_dw_xfer,
@@ -132,6 +135,23 @@ static inline int dw_i2c_acpi_configure(struct platform_device *pdev)
 }
 static inline void dw_i2c_acpi_unconfigure(struct platform_device *pdev) { }
 #endif
+/*I2C clock domain enable*/
+static void i2c_clk_domain_enable(struct dw_i2c_dev *dev, unsigned int enable)
+{
+	unsigned int ret;
+	int timeout = 10;
+
+	if (enable)
+		writel(BIT(dev->reset_bit), sctrl_base + dev->reset_enable_off);
+	else
+		writel(BIT(dev->reset_bit), sctrl_base + dev->reset_disable_off);
+
+	do {
+		ret = readl(sctrl_base + dev->reset_status_off);
+		ret &= BIT(dev->reset_bit);
+		udelay(1);
+	}while(!ret && timeout--);
+}
 
 static int dw_i2c_probe(struct platform_device *pdev)
 {
@@ -139,14 +159,13 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	struct i2c_adapter *adap;
 	struct resource *mem;
 	struct dw_i2c_platform_data *pdata;
+	struct device_node *node; 
 	int irq, r;
-	u32 clk_freq, ht = 0;
+	u32 clk_freq, ht = 0, data[4];
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "no irq resource?\n");
-		return irq; /* -ENXIO */
-	}
+	if (irq < 0)
+		return irq;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(struct dw_i2c_dev), GFP_KERNEL);
 	if (!dev)
@@ -156,6 +175,18 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	dev->base = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(dev->base))
 		return PTR_ERR(dev->base);
+	
+	if(!sctrl_base) {
+		node = of_find_compatible_node(NULL, NULL,"hisilicon,sysctrl");
+		if (node)
+			sctrl_base = of_iomap(node, 0);
+	}
+
+	of_property_read_u32_array(pdev->dev.of_node, "reset-controller-reg", &data[0], 4);
+	dev->reset_enable_off = data[0];
+	dev->reset_disable_off = data[1];
+	dev->reset_status_off = data[2];
+	dev->reset_bit = data[3];
 
 	init_completion(&dev->cmd_complete);
 	mutex_init(&dev->lock);
@@ -166,7 +197,7 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	/* fast mode by default because of legacy reasons */
 	clk_freq = 400000;
 
-	if (ACPI_COMPANION(&pdev->dev)) {
+	if (has_acpi_companion(&pdev->dev)) {
 		dw_i2c_acpi_configure(pdev);
 	} else if (pdev->dev.of_node) {
 		of_property_read_u32(pdev->dev.of_node,
@@ -195,6 +226,10 @@ static int dw_i2c_probe(struct platform_device *pdev)
 			clk_freq = pdata->i2c_scl_freq;
 	}
 
+	r = i2c_dw_eval_lock_support(dev);
+	if (r)
+		return r;
+
 	dev->functionality =
 		I2C_FUNC_I2C |
 		I2C_FUNC_10BIT_ADDR |
@@ -213,6 +248,9 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	dev->get_clk_rate_khz = i2c_dw_get_clk_rate_khz;
 	if (IS_ERR(dev->clk))
 		return PTR_ERR(dev->clk);
+	
+	i2c_clk_domain_enable(dev, 0);
+	
 	clk_prepare_enable(dev->clk);
 
 	if (!dev->sda_hold_time && ht) {
@@ -257,10 +295,14 @@ static int dw_i2c_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+	if (dev->pm_runtime_disabled) {
+		pm_runtime_forbid(&pdev->dev);
+	} else {
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_runtime_set_active(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+	}
 
 	return 0;
 }
@@ -278,7 +320,7 @@ static int dw_i2c_remove(struct platform_device *pdev)
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
-	if (ACPI_COMPANION(&pdev->dev))
+	if (has_acpi_companion(&pdev->dev))
 		dw_i2c_acpi_unconfigure(pdev);
 
 	return 0;
@@ -310,7 +352,9 @@ static int dw_i2c_resume(struct device *dev)
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
 	clk_prepare_enable(i_dev->clk);
-	i2c_dw_init(i_dev);
+
+	if (!i_dev->pm_runtime_disabled)
+		i2c_dw_init(i_dev);
 
 	return 0;
 }
@@ -327,7 +371,6 @@ static struct platform_driver dw_i2c_driver = {
 	.remove = dw_i2c_remove,
 	.driver		= {
 		.name	= "i2c_designware",
-		.owner	= THIS_MODULE,
 		.of_match_table = of_match_ptr(dw_i2c_of_match),
 		.acpi_match_table = ACPI_PTR(dw_i2c_acpi_match),
 		.pm	= &dw_i2c_dev_pm_ops,

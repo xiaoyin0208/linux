@@ -28,6 +28,8 @@ struct fib_rule {
 	int			suppress_prefixlen;
 	char			iifname[IFNAMSIZ];
 	char			oifname[IFNAMSIZ];
+	kuid_t			uid_start;
+	kuid_t			uid_end;
 	struct rcu_head		rcu;
 };
 
@@ -58,7 +60,7 @@ struct fib_rules_ops {
 					     struct sk_buff *,
 					     struct fib_rule_hdr *,
 					     struct nlattr **);
-	void			(*delete)(struct fib_rule *);
+	int			(*delete)(struct fib_rule *);
 	int			(*compare)(struct fib_rule *,
 					   struct fib_rule_hdr *,
 					   struct nlattr **);
@@ -86,6 +88,9 @@ struct fib_rules_ops {
 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
 	[FRA_TABLE]     = { .type = NLA_U32 }, \
+	[FRA_GOTO]	= { .type = NLA_U32 }, \
+	[FRA_UID_START]	= { .type = NLA_U32 }, \
+	[FRA_UID_END]	= { .type = NLA_U32 }, \
 	[FRA_SUPPRESS_PREFIXLEN] = { .type = NLA_U32 }, \
 	[FRA_SUPPRESS_IFGROUP] = { .type = NLA_U32 }, \
 	[FRA_GOTO]	= { .type = NLA_U32 }
@@ -95,17 +100,10 @@ static inline void fib_rule_get(struct fib_rule *rule)
 	atomic_inc(&rule->refcnt);
 }
 
-static inline void fib_rule_put_rcu(struct rcu_head *head)
-{
-	struct fib_rule *rule = container_of(head, struct fib_rule, rcu);
-	release_net(rule->fr_net);
-	kfree(rule);
-}
-
 static inline void fib_rule_put(struct fib_rule *rule)
 {
 	if (atomic_dec_and_test(&rule->refcnt))
-		call_rcu(&rule->rcu, fib_rule_put_rcu);
+		kfree_rcu(rule, rcu);
 }
 
 static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)

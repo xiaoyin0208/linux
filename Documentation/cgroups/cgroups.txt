@@ -312,10 +312,10 @@ the "cpuset" cgroup subsystem, the steps are something like:
  2) mkdir /sys/fs/cgroup/cpuset
  3) mount -t cgroup -ocpuset cpuset /sys/fs/cgroup/cpuset
  4) Create the new cgroup by doing mkdir's and write's (or echo's) in
-    the /sys/fs/cgroup virtual file system.
+    the /sys/fs/cgroup/cpuset virtual file system.
  5) Start a task that will be the "founding father" of the new job.
  6) Attach that task to the new cgroup by writing its PID to the
-    /sys/fs/cgroup/cpuset/tasks file for that cgroup.
+    /sys/fs/cgroup/cpuset tasks file for that cgroup.
  7) fork, exec or clone the job tasks from this founding father task.
 
 For example, the following sequence of commands will setup a cgroup
@@ -577,6 +577,15 @@ its subsystem state object. By the time this method is called, @cgrp
 is completely unused; @cgrp->parent is still valid. (Note - can also
 be called for a newly-created cgroup if an error occurs after this
 subsystem's create() method has been called for the new cgroup).
+
+int allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+(cgroup_mutex held by caller)
+
+Called prior to moving a task into a cgroup; if the subsystem
+returns an error, this will abort the attach operation.  Used
+to extend the permission checks - if all subsystems in a cgroup
+return 0, the attach will be allowed to proceed, even if the
+default permission check (root or same user) fails.
 
 int can_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 (cgroup_mutex held by caller)

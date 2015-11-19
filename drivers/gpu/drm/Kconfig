@@ -62,12 +62,13 @@ config DRM_TTM
 
 config DRM_GEM_CMA_HELPER
 	bool
-	depends on DRM
+	depends on DRM && HAVE_DMA_ATTRS
 	help
 	  Choose this if you need the GEM CMA helper functions
 
 config DRM_KMS_CMA_HELPER
 	bool
+	depends on DRM && HAVE_DMA_ATTRS
 	select DRM_GEM_CMA_HELPER
 	select DRM_KMS_FB_HELPER
 	select FB_SYS_FILLRECT
@@ -79,6 +80,17 @@ config DRM_KMS_CMA_HELPER
 source "drivers/gpu/drm/i2c/Kconfig"
 
 source "drivers/gpu/drm/bridge/Kconfig"
+
+config DRM_SYSRQ_MODE_HACK
+	bool "Allow SysRq-g to cycle through modes (1 crtc only)"
+	depends on DRM
+	help
+	  Select this option if your mode / timing generation is not so
+	  reliable that you can always show the preferred mode on any
+	  monitor and there are no arrangements on the platform to change
+	  it by hand.  You can use AltGr-Sysrq-g to cycle between the
+	  available modes when this is enabled.  It only understands one
+	  CRTC.
 
 config DRM_TDFX
 	tristate "3dfx Banshee/Voodoo3+"
@@ -110,7 +122,6 @@ config DRM_RADEON
 	select HWMON
 	select BACKLIGHT_CLASS_DEVICE
 	select INTERVAL_TREE
-	select MMU_NOTIFIER
 	help
 	  Choose this option if you have an ATI Radeon graphics card.  There
 	  are both PCI and AGP versions.  You don't need to choose this to
@@ -165,7 +176,18 @@ config DRM_SAVAGE
 	  Choose this option if you have a Savage3D/4/SuperSavage/Pro/Twister
 	  chipset. If M is selected the module will be called savage.
 
+config DRM_VGEM
+	tristate "Virtual GEM provider"
+	depends on DRM
+	help
+	  Choose this option to get a virtual graphics memory manager,
+	  as used by Mesa's software renderer for enhanced performance.
+	  If M is selected the module will be called vgem.
+
+
 source "drivers/gpu/drm/exynos/Kconfig"
+
+source "drivers/gpu/drm/rockchip/Kconfig"
 
 source "drivers/gpu/drm/vmwgfx/Kconfig"
 
@@ -180,6 +202,8 @@ source "drivers/gpu/drm/mgag200/Kconfig"
 source "drivers/gpu/drm/cirrus/Kconfig"
 
 source "drivers/gpu/drm/armada/Kconfig"
+
+source "drivers/gpu/drm/atmel-hlcdc/Kconfig"
 
 source "drivers/gpu/drm/rcar-du/Kconfig"
 
@@ -200,3 +224,9 @@ source "drivers/gpu/drm/tegra/Kconfig"
 source "drivers/gpu/drm/panel/Kconfig"
 
 source "drivers/gpu/drm/sti/Kconfig"
+
+source "drivers/gpu/drm/amd/amdkfd/Kconfig"
+
+source "drivers/gpu/drm/imx/Kconfig"
+
+source "drivers/gpu/drm/hisilicon/Kconfig"
