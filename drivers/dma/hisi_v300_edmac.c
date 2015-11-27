@@ -610,7 +610,7 @@ static int k3_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 		c->ccfg |= (val << 12) | (val << 16);
 
 		if ((maxburst == 0) || (maxburst > 16))
-			val = 16;
+			val = 15;
 		else
 			val = maxburst - 1;
 		c->ccfg |= (val << 20) | (val << 24);
