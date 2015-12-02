@@ -805,7 +805,7 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg)
 {
 	struct dw_mci *host = slot->host;
-	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+	unsigned long timeout = jiffies + msecs_to_jiffies(700);
 	unsigned int cmd_status = 0;
 	int rc;
 
