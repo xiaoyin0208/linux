@@ -362,7 +362,7 @@ static int hisi_drm_crtc_mode_set(struct drm_crtc *crtc,
 	struct hisi_drm_ade_crtc *crtc_ade = to_hisi_crtc(crtc);
 
 	DRM_DEBUG_DRIVER("mode_set  enter successfully.\n");
-	crtc_ade->dmode = adj_mode;
+	crtc_ade->dmode = mode;
 	DRM_DEBUG_DRIVER("mode_set  exit successfully.\n");
 	return 0;
 }
@@ -427,13 +427,8 @@ static int hisi_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		writel((ADE_RGB_565 << 16) & 0x1f0000,
 		    ade_base + RD_CH_DISP_CTRL_REG);
 	else if (32 == fb->bits_per_pixel)
-#if defined(CONFIG_ANDROID)
 		writel((ADE_ARGB_8888 << 16) & 0x1f0000,
 		    ade_base + RD_CH_DISP_CTRL_REG);
-#else
-		writel((ADE_ABGR_8888 << 16) & 0x1f0000,
-		    ade_base + RD_CH_DISP_CTRL_REG);
-#endif /* CONFIG_ANDROID */
 
 	writel(display_addr, ade_base + RD_CH_DISP_ADDR_REG);
 	writel((crtc->mode.vdisplay << 16) | crtc->mode.hdisplay * bytes_pp,

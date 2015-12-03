@@ -713,11 +713,31 @@
 			};
 		 };
 
+		 spi_0: spi@f7106000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x0 0xf7106000 0x0 0x1000>;
+			interrupts = <0 50 4>;
+			bus-id = <0>;
+			enable-dma = <1>;
+			dmas =	<&dma0 12 &dma0 13>;
+			dma-names = "rx", "tx";
+
+			clocks = <&clock_sys HI6220_SPI_CLK>;
+			clock-names = "apb_pclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi0_pmx_func &spi0_cfg_func>;
+			num-cs = <4>;
+			cs-gpios = <&gpio6 2 0>,<&gpio6 3 0>,<&gpio6 4 0>,<&gpio6 5 0>;
+
+			status = "ok";
+		};
+
 		display-subsystem {
 			compatible = "hisilicon,hi6220-drm";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
+			dma-coherent;
 
 			ade: ade@f4100000 {
 				compatible = "hisilicon,hi6220-ade";
@@ -763,12 +783,12 @@
                 interrupt-controller;
                 pmu_irq_gpio = <&gpio_pmu_irq_n>;
                 status = "ok";
-                ponkey:ponkey@b1{
-                        compatible = "hisilicon,hi6552-powerkey";
-                        interrupt-parent = <&pmic>;
-                        interrupts = <6 0>, <5 0>, <4 0>;
-                        interrupt-names = "down", "up", "hold 1s";
-                };
+		ponkey:ponkey@b1{
+			compatible = "hisilicon,hi6552-powerkey";
+			interrupt-parent = <&pmic>;
+			interrupts = <6 0>, <5 0>, <4 0>;
+			interrupt-names = "down", "up", "hold 4s";
+		};
                 coul: coul@1 {
                         compatible = "hisilicon,hi6552-coul";
                         interrupt-parent = <&pmic>;
@@ -1048,6 +1068,9 @@
 		card-detect-delay = <200>;
 		hisilicon,peripheral-syscon = <&ao_ctrl>;
 		cap-sd-highspeed;
+		sd-uhs-sdr12;
+		sd-uhs-sdr25;
+		sd-uhs-sdr50;
 		reg = <0x0 0xf723e000 0x0 0x1000>;
 		interrupts = <0x0 0x49 0x4>;
 		clocks = <&clock_sys HI6220_MMC1_CIUCLK>, <&clock_sys HI6220_MMC1_CLK>;
@@ -1150,7 +1173,7 @@
 		g-use-dma;
 		g-rx-fifo-size = <512>;
 		g-np-tx-fifo-size = <128>;
-		g-tx-fifo-size = <128>;
+		g-tx-fifo-size = <128 128 128 128 128 128>;
 		interrupts = <0 77 0x4>;
 	};
 

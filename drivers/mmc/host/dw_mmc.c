@@ -232,7 +232,6 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 {
 	struct mmc_data	*data;
 	struct dw_mci_slot *slot = mmc_priv(mmc);
-	struct dw_mci *host = slot->host;
 	const struct dw_mci_drv_data *drv_data = slot->host->drv_data;
 	u32 cmdr;
 	cmd->error = -EINPROGRESS;
@@ -249,7 +248,6 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 		cmdr |= SDMMC_CMD_PRV_DAT_WAIT;
 
 	if (cmd->opcode == SD_SWITCH_VOLTAGE) {
-		u32 clk_en_a;
 
 		/* Special bit makes CMD11 not die */
 		cmdr |= SDMMC_CMD_VOLT_SWITCH;
@@ -269,11 +267,6 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 		 * ever called with a non-zero clock.  That shouldn't happen
 		 * until the voltage change is all done.
 		 */
-		clk_en_a = mci_readl(host, CLKENA);
-		clk_en_a &= ~(SDMMC_CLKEN_LOW_PWR << slot->id);
-		mci_writel(host, CLKENA, clk_en_a);
-		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
-			     SDMMC_CMD_PRV_DAT_WAIT, 0);
 	}
 
 	if (cmd->flags & MMC_RSP_PRESENT) {
@@ -337,7 +330,7 @@ static u32 dw_mci_prep_stop_abort(struct dw_mci *host, struct mmc_command *cmd)
 	return cmdr;
 }
 
-static void dw_mci_wait_while_busy(struct dw_mci *host, u32 cmd_flags)
+static int dw_mci_wait_while_busy(struct dw_mci *host, u32 cmd_flags)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
 
@@ -353,13 +346,21 @@ static void dw_mci_wait_while_busy(struct dw_mci *host, u32 cmd_flags)
 	    !(cmd_flags & SDMMC_CMD_VOLT_SWITCH)) {
 		while (mci_readl(host, STATUS) & SDMMC_STATUS_BUSY) {
 			if (time_after(jiffies, timeout)) {
-				/* Command will fail; we'll pass error then */
-				dev_err(host->dev, "Busy; trying anyway\n");
-				break;
+				dev_err(host->dev, "card not ready: "
+
+#if defined CONFIG_MMC_DW_K3
+				"aborting command\n");
+				return -EBUSY;
+#else
+				"sending command anyway\n");
+				return 0;
+#endif
 			}
 			udelay(10);
 		}
 	}
+
+	return 0;
 }
 
 static void dw_mci_start_command(struct dw_mci *host,
@@ -904,10 +905,33 @@ static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg)
 	struct dw_mci *host = slot->host;
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
 	unsigned int cmd_status = 0;
+	int rc;
 
 	mci_writel(host, CMDARG, arg);
 	wmb();
-	dw_mci_wait_while_busy(host, cmd);
+
+	rc = dw_mci_wait_while_busy(host, cmd);
+	if (rc) {
+		dev_err(&slot->mmc->class_dev,
+			"Timeout preparing command (cmd %#x arg %#x status %#x)\n",
+			cmd, arg, cmd_status);
+
+		/*
+		 * So, if the prep command times out because the card is stuck
+		 * in busy for whatever reason, just aborting here will muck
+		 * up the command request state machine. So be a little more
+		 * aggressive and reset the host.
+		 *
+		 * Though if this error happens before the first request, which
+		 * means the cur_slot value may be uninitialized. So set it here
+		 * if necessary.
+		 */
+		if (!host->cur_slot)
+			host->cur_slot = slot;
+		dw_mci_reset(host);
+		return;
+	}
+
 	mci_writel(host, CMD, SDMMC_CMD_START | cmd);
 
 	while (time_before(jiffies, timeout)) {
@@ -968,7 +992,8 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 
 		/* enable clock; only low power if no SDIO */
 		clk_en_a = SDMMC_CLKEN_ENABLE << slot->id;
-		if (!test_bit(DW_MMC_CARD_NO_LOW_PWR, &slot->flags))
+		if (!test_bit(DW_MMC_CARD_NO_LOW_PWR, &slot->flags)
+		     && (slot->mmc->index != 1))
 			clk_en_a |= SDMMC_CLKEN_LOW_PWR << slot->id;
 		mci_writel(host, CLKENA, clk_en_a);
 
@@ -1137,10 +1162,14 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	/* DDR mode set */
 	if (ios->timing == MMC_TIMING_MMC_DDR52 ||
+	    ios->timing == MMC_TIMING_UHS_DDR50 ||
 	    ios->timing == MMC_TIMING_MMC_HS400)
 		regs |= ((0x1 << slot->id) << 16);
 	else
 		regs &= ~((0x1 << slot->id) << 16);
+
+	if (mmc->index == 1)
+		regs |= (0x1 << slot->id);
 
 	mci_writel(slot->host, UHS_REG, regs);
 	slot->host->timing = ios->timing;
@@ -1190,7 +1219,6 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			dw_mci_ctrl_reset(slot->host,
 					  SDMMC_CTRL_ALL_RESET_FLAGS);
 		}
-
 		/* Adjust clock / bus width after power is up */
 		dw_mci_setup_bus(slot, false);
 
@@ -1393,6 +1421,7 @@ static int dw_mci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	if (drv_data && drv_data->execute_tuning)
 		err = drv_data->execute_tuning(slot);
+
 	return err;
 }
 
@@ -2727,7 +2756,7 @@ int dw_mci_probe(struct dw_mci *host)
 		}
 	}
 
-	if (host->pdata->num_slots > 1) {
+	if (host->pdata->num_slots < 1) {
 		dev_err(host->dev,
 			"Platform data must supply num_slots.\n");
 		return -ENODEV;
