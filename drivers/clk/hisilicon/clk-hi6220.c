@@ -74,8 +74,10 @@ static struct hisi_gate_clock hi6220_separated_gate_clks_ao[] __initdata = {
 	{ HI6220_RTC1_PCLK,  "rtc1_pclk",  "clk_tcxo", CLK_SET_RATE_PARENT|CLK_IGNORE_UNUSED, 0x630, 26, 0, },
 };
 
+#define SOC_PERI_SCTRL_BASE_ADDR	0xF7030000 /* peri ctrl base addr */
 #define SC_PERIPH_CTRL14		0x02C
 #define SC_PERIPH_STAT1			0x094
+#define SOC_PMCTRL_BASE_ADDR		0xF7032000 /* pm ctrl base addr*/
 #define SC_PM_DDRPLL_STAT		0x18
 #define SC_PM_SYSPLL_STAT		0x28
 #define SC_PM_MEDPLL_STAT		0x38
@@ -84,8 +86,6 @@ static struct hisi_clock_data *clk_data_ao;
 
 static void __init hi6220_clk_ao_init(struct device_node *np)
 {
-	struct device_node *peri_node, *pm_node;
-	struct resource res;
 	void __iomem *peri_base, *pm_base;
 	unsigned int freq_u, freq_l, freq, pll_stat;
 	int i;
@@ -94,22 +94,8 @@ static void __init hi6220_clk_ao_init(struct device_node *np)
 	if (!clk_data_ao)
 		return;
 
-	/* get peri_base address from device tree node sys_ctrl */
-	peri_node = of_find_node_by_name(np, "sys_ctrl");
-	if(!of_address_to_resource(peri_node, 0, &res)) {
-		pr_warning("of_address_to_resource for peri_node failed\n");
-		// we should preferably return some error? Or crash here?
-	}
-	peri_base = ioremap(res.start, resource_size(&res));
-
-	/* get pm_base address from device tree node pm_ctrl */
-	pm_node = of_find_node_by_name(np, "pm_ctrl");
-	if(!of_address_to_resource(pm_node, 0, &res)) {
-		pr_warning("of_address_to_resource for pm_node failed\n");
-		// we should preferably return some error? Or crash here?
-	}
-	pm_base = ioremap(res.start, resource_size(&res));
-
+	peri_base = ioremap(SOC_PERI_SCTRL_BASE_ADDR, 0x1000);
+	pm_base = ioremap(SOC_PMCTRL_BASE_ADDR, 0x1000);
 	/* SYSPLL is set by bootloader. Read it */
 	/* check syspll enablement status */
 	pll_stat = readl(pm_base + SC_PM_SYSPLL_STAT);
