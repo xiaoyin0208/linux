@@ -222,7 +222,13 @@ static int ade_power_down(struct hisi_drm_ade_crtc *crtc_ade)
 
 static int hisi_drm_crtc_ade_enable(struct hisi_drm_ade_crtc *crtc_ade)
 {
+	struct drm_framebuffer *fb = crtc_ade->crtc.primary->fb;
 	int ret;
+
+	if (fb->width != crtc_ade->dmode->hdisplay) {
+		DRM_ERROR("mode and fb width don't match\n");
+		return -EINVAL;
+	}
 
 	if (!crtc_ade->power_on) {
 		ret = ade_power_up(crtc_ade);
@@ -235,8 +241,9 @@ static int hisi_drm_crtc_ade_enable(struct hisi_drm_ade_crtc *crtc_ade)
 	ade_set_medianoc_qos(crtc_ade);
 	ade_init(crtc_ade);
 	ldi_init(crtc_ade);
-	if (crtc_ade->crtc.primary->fb)
+	if (fb)
 		hisi_drm_crtc_mode_set_base(&crtc_ade->crtc, 0, 0, NULL);
+
 	return 0;
 }
 
@@ -323,17 +330,19 @@ static void hisi_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
 	struct hisi_drm_ade_crtc *crtc_ade = to_hisi_crtc(crtc);
 	bool enable = (mode == DRM_MODE_DPMS_ON);
+	int ret;
 
 	DRM_DEBUG_DRIVER("crtc_dpms  enter successfully.\n");
 	if (crtc_ade->enable == enable)
 		return;
 
 	if (enable)
-		hisi_drm_crtc_ade_enable(crtc_ade);
+		ret = hisi_drm_crtc_ade_enable(crtc_ade);
 	else
-		hisi_drm_crtc_ade_disable(crtc_ade);
+		ret = hisi_drm_crtc_ade_disable(crtc_ade);
 
-	crtc_ade->enable = enable;
+	if (!ret)
+		crtc_ade->enable = enable;
 	DRM_DEBUG_DRIVER("crtc_dpms exit successfully.\n");
 }
 
