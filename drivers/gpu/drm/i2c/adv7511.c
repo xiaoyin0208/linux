@@ -561,6 +561,7 @@ static int adv7511_irq_process(struct adv7511 *adv7511)
 {
 	unsigned int irq0, irq1, state;
 	struct drm_encoder *encoder = adv7511->encoder;
+	struct drm_display_mode *mode = &adv7511->curr_mode;
 	struct hisi_dsi *dsi;
 	bool powered = adv7511->powered;
 	int ret;
@@ -599,8 +600,10 @@ static int adv7511_irq_process(struct adv7511 *adv7511)
 		regmap_update_bits(adv7511->regmap_cec, 0x38, BIT(1), BIT(1));
 		regmap_update_bits(adv7511->regmap_cec, 0x38, BIT(1), 0);
 
-		dsi = encoder_to_dsi(encoder);
-		dsi->reset(encoder);
+		if (mode->hdisplay == 1280 && mode->vdisplay == 720) {
+			dsi = encoder_to_dsi(encoder);
+			dsi->reset(encoder);
+		}
 	}
 
 	return 0;
