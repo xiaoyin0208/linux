@@ -20,7 +20,7 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/of_dma.h>
-
+#include <linux/dma-direction.h>
 #include "virt-dma.h"
 
 #define DRIVER_NAME		"k3-dma"
@@ -209,13 +209,13 @@ static irqreturn_t k3_dma_int_handler(int irq, void *dev_id)
 	u32 err2 = readl_relaxed(d->base + INT_ERR2);
 	u32 i, irq_chan = 0;
 
-
+/*
 	static int spew = 0;
 	if (spew < 10) {
 		pr_err("dma stat=0x%x tc1=0x%x tc2=0x%x err1=0x%x err2=0x%x\n",
 			stat, tc1, tc2, err1, err2);
 	}
-
+*/
 	while (stat) {
 		i = __ffs(stat);
 		stat &= ~BIT(i);
@@ -642,9 +642,9 @@ k3_dma_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t buf_addr,
 	/* "Cyclic" == end of link points back to start of link */
 	ds->desc_hw[num - 1].lli |= ds->desc_hw_lli;
 
-	if (dev->dma_no_cci)
-		dma_sync_single_for_device(chan->device->dev, ds->desc_hw_lli,
-			ds->desc_num * sizeof(ds->desc_hw[0]), DMA_TO_DEVICE);
+//	if (dev->dma_no_cci)
+//		dma_sync_single_for_device(chan->device->dev, ds->desc_hw_lli,
+//			ds->desc_num * sizeof(ds->desc_hw[0]), DMA_TO_DEVICE);
 	ds->size = total;
 
 	return vchan_tx_prep(&c->vc, &ds->vd, flags);
