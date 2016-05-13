@@ -232,7 +232,7 @@ static irqreturn_t k3_dma_int_handler(int irq, void *dev_id)
 			irq_chan |= BIT(i);
 		}
 		if (unlikely((err1 & BIT(i)) || (err2 & BIT(i))))
-			dev_warn(d->slave.dev, "DMA ERR\n");
+			dev_warn(d->slave.dev, "DMA ERR phy[%d] stats[0x%x] err1[0x%x] err2[0x%x]\n", p->idx, stat, err1, err2);
 	}
 
 	writel_relaxed(irq_chan, d->base + INT_TC1_RAW);
