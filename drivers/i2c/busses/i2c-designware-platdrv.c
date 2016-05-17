@@ -141,6 +141,7 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 	int irq, r;
 	u32 clk_freq, ht = 0;
 
+	dev_err(&pdev->dev, "enter %s\n", __func__);
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
@@ -184,6 +185,7 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Only 100kHz and 400kHz supported");
 			return -EINVAL;
 		}
+		//dev->pm_runtime_disabled = true;
 	} else {
 		pdata = dev_get_platdata(&pdev->dev);
 		if (pdata)
@@ -209,10 +211,12 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 			DW_IC_CON_RESTART_EN | DW_IC_CON_SPEED_FAST;
 
 	dev->clk = devm_clk_get(&pdev->dev, NULL);
+	dev_err(&pdev->dev, "dev->clk=%lx\n", dev->clk);
 	dev->get_clk_rate_khz = i2c_dw_get_clk_rate_khz;
 	if (IS_ERR(dev->clk))
 		return PTR_ERR(dev->clk);
 	clk_prepare_enable(dev->clk);
+	dev_err(&pdev->dev, "after clk_prepare_enable\n");
 
 	if (!dev->sda_hold_time && ht) {
 		u32 ic_clk = dev->get_clk_rate_khz(dev);
@@ -280,11 +284,13 @@ MODULE_DEVICE_TABLE(of, dw_i2c_of_match);
 #ifdef CONFIG_PM_SLEEP
 static int dw_i2c_plat_prepare(struct device *dev)
 {
+	dev_err(dev, "enter %s\n", __func__);
 	return pm_runtime_suspended(dev);
 }
 
 static void dw_i2c_plat_complete(struct device *dev)
 {
+	dev_err(dev, "enter %s\n", __func__);
 	if (dev->power.direct_complete)
 		pm_request_resume(dev);
 }
@@ -299,6 +305,7 @@ static int dw_i2c_plat_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
+	dev_err(dev, "enter %s\n", __func__);
 	i2c_dw_disable(i_dev);
 	clk_disable_unprepare(i_dev->clk);
 
@@ -310,6 +317,7 @@ static int dw_i2c_plat_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
+	dev_err(dev, "enter %s\n", __func__);
 	clk_prepare_enable(i_dev->clk);
 
 	if (!i_dev->pm_runtime_disabled)
