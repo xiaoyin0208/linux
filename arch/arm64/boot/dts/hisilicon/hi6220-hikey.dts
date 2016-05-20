@@ -10,6 +10,7 @@
 
 #include "hi6220.dtsi"
 #include "hikey-pinctrl.dtsi"
+#include "hi6220-coresight.dtsi"
 
 / {
 	model = "HiKey Development Board";
