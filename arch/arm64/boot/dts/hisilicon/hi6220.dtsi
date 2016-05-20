@@ -9,6 +9,7 @@
 #include <dt-bindings/pinctrl/hisi.h>
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/reset/hisi,hi6220-resets.h>
+#include "hi6220-coresight.dtsi"
 
 / {
 	compatible = "hisilicon,hi6220";
