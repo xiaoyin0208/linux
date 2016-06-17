@@ -137,6 +137,27 @@
 		};
 	};
 
+	kim {
+		compatible = "kim";
+		pinctrl-names = "default";
+		pinctrl-0 = <>; /* FIXME: add BT PCM pinctrl here */
+		/*
+		 * FIXME: The following is complete CRAP since
+		 * the vendor driver doesn't follow the gpio
+		 * binding. Passing in a magic Linux gpio number
+		 * here until we fix the vendor driver.
+		 */
+		/* BT_EN: BT_REG_ON_GPIO1_7 */
+		nshutdown_gpio = <503>;
+		dev_name = "/dev/ttyAMA1";
+		flow_cntrl = <1>;
+		baud_rate = <3000000>;
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
+
 	pmic: pmic@f8000000 {
 		compatible = "hisilicon,hi655x-pmic";
 		reg = <0x0 0xf8000000 0x0 0x1000>;
@@ -229,3 +250,75 @@
 &uart3 {
 	label = "LS-UART1";
 };
+
+&ade {
+	status = "ok";
+};
+
+&dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	mux-gpio = <&gpio0 1 0>;
+	status = "ok";
+
+	ports {
+		/* 1 for output port */
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			dsi_out0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&adv7533_in>;
+			};
+
+			dsi_out1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+
+	/* For panel reg's value should >= 1 */
+	panel@1 {
+		compatible = "innolux,n070icn-pb1";
+		reg = <1>;
+		power-on-delay= <50>;
+		reset-delay = <100>;
+		init-delay = <100>;
+		panel-width-mm = <58>;
+		panel-height-mm = <103>;
+		pwr-en-gpio = <&gpio2 1 0>;
+		bl-en-gpio = <&gpio2 3 0>;
+		pwm-gpio = <&gpio12 7 0>;
+
+		port {
+			panel0_in: endpoint {
+				remote-endpoint = <&dsi_out1>;
+			};
+		};
+	};
+};
+
+&i2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+
+	adv7533: adv7533@39 {
+		compatible = "adi,adv7533";
+		reg = <0x39>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <1 2>;
+		pd-gpio = <&gpio0 4 0>;
+		adi,dsi-lanes = <4>;
+		adi,disable-timing-generator;
+
+		port {
+			adv7533_in: endpoint {
+				remote-endpoint = <&dsi_out0>;
+			};
+		};
+	};
+ };
