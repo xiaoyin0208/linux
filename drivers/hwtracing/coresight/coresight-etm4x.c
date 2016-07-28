@@ -2653,7 +2653,7 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 	etm4_init_default_data(drvdata);
 
-	pm_runtime_put(&adev->dev);
+	/* pm_runtime_put(&adev->dev); */
 
 	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
