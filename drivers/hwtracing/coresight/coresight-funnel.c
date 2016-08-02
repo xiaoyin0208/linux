@@ -206,7 +206,7 @@ static int funnel_probe(struct amba_device *adev, const struct amba_id *id)
 		return PTR_ERR(base);
 
 	drvdata->base = base;
-	pm_runtime_put(&adev->dev);
+	/* pm_runtime_put(&adev->dev); */
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)

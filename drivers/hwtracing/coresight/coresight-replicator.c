@@ -113,7 +113,7 @@ static int replicator_probe(struct platform_device *pdev)
 		goto out_disable_pm;
 	}
 
-	pm_runtime_put(&pdev->dev);
+	/* pm_runtime_put(&pdev->dev); */
 
 	dev_info(dev, "REPLICATOR initialized\n");
 	return 0;

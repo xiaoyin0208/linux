@@ -704,7 +704,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	pm_runtime_put(&adev->dev);
+	/* pm_runtime_put(&adev->dev); */
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		drvdata->vaddr = dma_alloc_coherent(dev, drvdata->size,
