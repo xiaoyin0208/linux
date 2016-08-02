@@ -32,6 +32,7 @@
 			};
 		};
 
+/*
 		etm@1,f659d000 {
 			compatible = "arm,coresight-etm4x","arm,primecell";
 			reg = <0 0xF659D000 0 0x1000>;
@@ -77,7 +78,7 @@
 				};
 			};
 		};
-		/* A53 cluster1 internal coresight */
+
 		etm@4,f65dc000 {
 			compatible = "arm,coresight-etm4x","arm,primecell";
 			reg = <0 0xF65DC000 0 0x1000>;
@@ -137,6 +138,7 @@
 				};
 			};
 		};
+*/
 
 		funnel0:funnel@0,f6501000 {
 			compatible = "arm,coresight-funnel","arm,primecell";
@@ -165,6 +167,7 @@
 					};
 				};
 
+/*
 				port@2 {
 					reg = <1>;
 					funnel0_in_port1: endpoint {
@@ -220,6 +223,7 @@
 						remote-endpoint = <&etm7_out_port>;
 					};
 				};
+*/
 			};
 		};
 
