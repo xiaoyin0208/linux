@@ -138,6 +138,10 @@
 	};
 };
 
+&uart3 {
+	status = "ok";
+};
+
 &uart4 {
 	status = "ok";
 };
